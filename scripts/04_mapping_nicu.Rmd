@@ -1,0 +1,217 @@
+# --------------------------------
+#Description: Mapping changes in nicus on a county level
+#Author: Elizabeth Blake 
+#Created 4/12/2024
+#Last Edit: 4/12/2024
+# --------------------------------
+
+```{r}
+
+# installing and loading necessary libraries 
+if(!requireNamespace("pacman", quietly = TRUE)) install.packages("pacman")
+pacman::p_load(here, folders, readr, dplyr, tidyr, stringr, purrr, lubridate, snakecase, ggplot2, ggthemes, cowplot, magrittr, rgdal, tidygeocoder, sf, tigris, MetBrewer, tidyverse, RColorBrewer, patchwork, ggmap, ggtheme)
+
+```
+
+```{r}
+
+full_county_counts <- read_csv(here("data", "full_county_counts.csv"))
+
+
+# tiger line states
+states <- states()
+counties <- counties(state = NULL) %>% 
+  st_transform(counties, crs = 5070) %>% 
+  select(c("STATEFP", "GEOID", "NAME"))
+counties <- st_make_valid(counties)
+hi <- st_read(here("data", "hi_shp", "2020_Census_County_Boundaries.shp")) #using a different shapefile for Hawaii 
+usa_lines <- st_read(here("data", "usa_lines", "usa_lines.shp")) #bringing in state boundaries
+
+full_county_counts <- left_join(full_county_counts, counties, by = c("GEOID", "STATEFP"))
+hi <- left_join(hi, full_county_counts, by = c("geoid20" = "GEOID"))
+
+# converting level cols back into factors for mapping 
+full_county_counts <- full_county_counts %>% 
+  mutate(
+        level_96_11 = as.factor(level_96_11),
+        level_11_23 = as.factor(level_11_23),
+        level_96_23 = as.factor(level_96_23)
+        )
+
+hi <- hi %>% 
+  mutate(
+        level_96_11 = as.factor(level_96_11),
+        level_11_23 = as.factor(level_11_23),
+        level_96_23 = as.factor(level_96_23)
+        )
+
+ak <- full_county_counts %>% 
+  filter(STATEFP == "02") 
+ak <- st_as_sf(ak) %>% 
+          st_transform(ak, crs = 3338)
+
+```
+
+```{r}
+
+benedictus <- c(
+"Decrease 2-4" = "#d8527c", 
+"Decrease 1"  = "#f9b4c9",
+"Increase 1"  = "#eaf3ff",
+"Increase 2-4" = "#a1c2ed",
+"Increase 5-14" = "#4060c8",
+"No Change" = "#c3a7eb",
+"No NICUs"  = "#ffffff"
+)
+
+desired_order <- c("Increase 5-14", "Increase 2-4", "Increase 1", "No Change", "Decrease 1", "Decrease 2-4", "No NICUs")
+
+```
+
+```{r}
+
+#### 1996-2011 Map ####
+
+# CONUS #
+conus9611 <- ggplot() + 
+  geom_sf(data = full_county_counts %>% 
+            filter(!STATEFP %in% c("02", "15", "72", "78", "69", "60", "66")), 
+            aes(fill = level_96_11, geometry = geometry), size = 0.01) +
+  scale_fill_manual(values = benedictus, breaks = desired_order) +
+  theme_map() +
+  theme(
+        legend.title = element_blank(),
+        legend.position = "none")
+
+conus9611
+ggsave(here("maps", "96_11_maps", "conus9611.png"), dpi=300, height=10, width=18, units="in")
+
+
+# AK #
+ak9611 <- ggplot() + 
+  geom_sf(data = ak %>% 
+          filter(STATEFP %in% c("02")), 
+          aes(fill = level_96_11, geometry = geometry)) +
+  scale_fill_manual(values = benedictus, breaks = desired_order) +
+  theme_map()  +
+  theme(
+        legend.title = element_blank(),
+        legend.position = "none")
+
+ak9611
+ggsave(here("maps", "96_11_maps", "ak9611.png"), dpi=300, height=10, width=10, units="in")
+  
+
+# HI #
+hi9611 <- ggplot() + 
+  geom_sf(data = hi, aes(fill = level_96_11)) +
+  coord_sf(crs = "+proj=aea +lat_1=8 +lat_2=18 +lat_0=13 +lon_0=-157 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs") +
+  scale_fill_manual(values = benedictus, breaks = desired_order) +
+  theme_map()  +
+  theme(
+        legend.title = element_blank(),
+        legend.position = "none")
+
+hi9611
+ggsave(here("maps", "96_11_maps", "hi9611.png"), dpi=300, height=10, width=10, units="in")
+
+```
+
+```{r}
+
+#### 2011-2023 Map ####
+
+# CONUS #
+conus1123 <- ggplot() + 
+  geom_sf(data = full_county_counts %>% 
+            filter(!STATEFP %in% c("02", "15", "72", "78", "69", "60", "66")), 
+            aes(fill = level_11_23, geometry = geometry), size = 0.01) +
+  scale_fill_manual(values = benedictus, breaks = desired_order) +
+  theme_map() +
+  theme(
+        legend.title = element_blank(),
+        legend.position = "none")
+
+conus1123
+ggsave(here("maps", "11_23_maps", "conus1123.png"), dpi=300, height=10, width=18, units="in")
+
+
+# AK #
+ak1123 <- ggplot() + 
+  geom_sf(data = ak %>% 
+          filter(STATEFP %in% c("02")), 
+          aes(fill = level_11_23, geometry = geometry)) +
+  scale_fill_manual(values = benedictus, breaks = desired_order) +
+  theme_map()  +
+  theme(
+        legend.title = element_blank(),
+        legend.position = "none")
+
+ak1123
+ggsave(here("maps", "11_23_maps", "ak1123.png"), dpi=300, height=10, width=10, units="in")
+  
+
+# HI #
+hi1123 <- ggplot() + 
+  geom_sf(data = hi, aes(fill = level_11_23)) +
+  coord_sf(crs = "+proj=aea +lat_1=8 +lat_2=18 +lat_0=13 +lon_0=-157 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs") +
+  scale_fill_manual(values = benedictus, breaks = desired_order) +
+  theme_map()  +
+  theme(
+        legend.title = element_blank(),
+        legend.position = "none")
+
+hi1123
+ggsave(here("maps", "11_23_maps", "hi1123.png"), dpi=300, height=10, width=10, units="in")
+
+```
+
+```{r}
+
+#### 1996-2023 Map ####
+
+# CONUS #
+conus9623 <- ggplot() + 
+  geom_sf(data = full_county_counts %>% 
+            filter(!STATEFP %in% c("02", "15", "72", "78", "69", "60", "66")), 
+            aes(fill = level_96_23, geometry = geometry), size = 0.01) +
+  scale_fill_manual(values = benedictus, breaks = desired_order) +
+  theme_map() +
+  theme(
+        legend.title = element_blank(),
+        legend.position = "none")
+
+conus9623
+ggsave(here("maps", "96_23_maps", "conus9623.png"), dpi=300, height=10, width=18, units="in")
+
+
+# AK #
+ak9623 <- ggplot() + 
+  geom_sf(data = ak %>% 
+          filter(STATEFP %in% c("02")), 
+          aes(fill = level_96_23, geometry = geometry)) +
+  scale_fill_manual(values = benedictus, breaks = desired_order) +
+  theme_map()  +
+  theme(
+        legend.title = element_blank(),
+        legend.position = "none")
+
+ak9623
+ggsave(here("maps", "96_23_maps", "ak9623.png"), dpi=300, height=10, width=10, units="in")
+  
+
+# HI #
+hi9623 <- ggplot() + 
+  geom_sf(data = hi, aes(fill = level_96_23)) +
+  coord_sf(crs = "+proj=aea +lat_1=8 +lat_2=18 +lat_0=13 +lon_0=-157 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs") +
+  scale_fill_manual(values = benedictus, breaks = desired_order) +
+  theme_map()  +
+  theme(
+        legend.title = element_blank(),
+        legend.position = "none")
+
+hi9623
+ggsave(here("maps", "96_23_maps", "hi9623.png"), dpi=300, height=10, width=10, units="in")
+
+```
+

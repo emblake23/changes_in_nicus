@@ -1,0 +1,586 @@
+---
+title: "cleaning_nicu"
+author: "Elizabeth Blake"
+date: "2023-06-28"
+last update: "2024-04-12"
+---
+
+```{r}
+# installing and loading necessary libraries 
+if(!requireNamespace("pacman", quietly = TRUE)) install.packages("pacman")
+pacman::p_load(here, folders, readr, dplyr, tidyr, stringr, purrr, lubridate, snakecase, ggplot2, ggthemes, cowplot, magrittr, rgdal, tidygeocoder, sf, tigris, MetBrewer, tidyverse, RColorBrewer, patchwork, ggmap, skimr)
+```
+
+
+```{r}
+nicu_2023 <- read_csv(here("data", "raw_nicus_2023.csv"))
+
+nicu_2023$state <- NA
+nicu_2023$zip <- NA 
+
+nicu_2023 <- nicu_2023 %>% 
+  separate(city_state_zip, into = c("city", "state"), sep = ",")
+
+# Extracting the numbers from the "state" column and moving them into the "zip" column
+nicu_2023 <- nicu_2023 %>%
+  mutate(zip = str_extract(state, "\\d+"),
+         state = str_remove(state, "\\d+"))
+
+```
+
+
+```{r Cleaning 23 Data}
+
+#Manual Edits 
+###0-100 --------------------
+nicu_2023[5, 5] <- "FL"
+nicu_2023[10, 5] <- "FL"
+nicu_2023[28, "city"] <- "Anchorage"
+nicu_2023[28, "state"] <- "AK"
+nicu_2023[28, "zip"] <- "99508"
+nicu_2023[55, "state"] <- "AR"
+nicu_2023[73, "state"] <- "NJ"
+
+###100s
+nicu_2023[120, "state"] <- "DE"
+nicu_2023[141, "city"] <- "Great Falls"
+nicu_2023[141, "state"] <- "MT"
+nicu_2023[141, "zip"] <- "59405"
+nicu_2023[149, "city"] <- "Billings"
+nicu_2023[149, "state"] <- "MT"
+nicu_2023[149, "zip"] <- "59101"
+nicu_2023[157, "city"] <- "Bozeman"
+nicu_2023[157, "state"] <- "MT"
+nicu_2023[157, "zip"] <- "59715"
+nicu_2023[188, "state"] <- "CO"
+
+###200s
+nicu_2023[200, "state"] <- "CO"
+nicu_2023[202, "state"] <- "CO"
+nicu_2023[228, "city"] <- "Las Vegas"
+nicu_2023[228, "state"] <- "NV"
+nicu_2023[228, "zip"] <- "89102"
+nicu_2023[262, "zip"] <- "44195"
+nicu_2023[269, "state"] <- "OK"
+nicu_2023[276, "city"] <- "Missoula"
+nicu_2023[276, "state"] <- "MT"
+nicu_2023[276, "zip"] <- "59804"
+  
+####300s
+nicu_2023[343, "city"] <- "Schenectady"
+nicu_2023[343, "state"] <- "NY"
+nicu_2023[343, "zip"] <- "12308"
+
+###400s 
+nicu_2023[423, "state"] <- "GA"
+nicu_2023[426, "city"] <- "Elizabethtown"
+nicu_2023[426, "state"] <- "KY"
+nicu_2023[426, "zip"] <- "42701"
+
+###500s  
+nicu_2023[521, "city"] <- "Sewell"
+nicu_2023[521, "state"] <- "NJ"
+nicu_2023[521, "zip"] <- "08080"
+nicu_2023[563, "city"] <- "Kalispell"
+nicu_2023[563, "state"] <- "MT"
+nicu_2023[563, "zip"] <- "59901"
+nicu_2023[595, "state"] <- "NJ"
+
+###600s
+nicu_2023[600, "zip"] <- "29169"
+nicu_2023[630, "state"] <- "IN"
+nicu_2023[630, "zip"] <- "47006"
+
+###700s
+nicu_2023[707, "city"] <- "Redding"
+nicu_2023[707, "state"] <- "CA"
+nicu_2023[707, "zip"] <- "96001"
+nicu_2023[736, "state"] <- "OH"
+nicu_2023[764, "state"] <- "OH"
+nicu_2023[771, "city"] <- "Las Vegas"
+nicu_2023[771, "state"] <- "NV"
+nicu_2023[771, "zip"] <- "89128"
+nicu_2023[787, "city"] <- "Hot Springs"
+
+###800s
+nicu_2023[800, "state"] <- "NY"
+nicu_2023[825, "zip"] <- "94533"
+
+###900s
+nicu_2023[933, "zip"] <- "29605"
+nicu_2023[949, "city"] <- "Missoula"
+nicu_2023[949, "state"] <- "MT"
+nicu_2023[949, "zip"] <- "59802"
+nicu_2023[965, "city"] <- "Reno"
+nicu_2023[965, "state"] <- "NV"
+nicu_2023[965, "zip"] <- "89502"
+nicu_2023[987, "state"] <- "IL"
+nicu_2023[992, "zip"] <- "08876"
+
+###1000s
+nicu_2023[1014, "zip"] <- "97301"
+nicu_2023[1022, "state"] <- "SD"
+nicu_2023[1023, "state"] <- "ND"
+nicu_2023[1054, "state"] <- "MI"
+nicu_2023[1054, "zip"] <- "48235"
+nicu_2023[1061, "zip"] <- "03060"
+nicu_2023[1074, "state"] <- "TX"
+nicu_2023[1088, "state"] <- "MD"
+nicu_2023[1098, "zip"] <- "97701"
+nicu_2023[1099, "state"] <- "PA"
+
+###1100s
+nicu_2023[1123, "state"] <- "IN"
+nicu_2023[1136, "city"] <- "Boise"
+nicu_2023[1136, "state"] <- "ID"
+nicu_2023[1136, "zip"] <- "83712"
+nicu_2023[1124, "state"] <- "TX"
+nicu_2023[1156, "city"] <- "Reno"
+nicu_2023[1156, "state"] <- "NV"
+nicu_2023[1156, "zip"] <- "89503"
+nicu_2023[1159, "city"] <- "Henderson"
+nicu_2023[1159, "state"] <- "NV"
+nicu_2023[1159, "zip"] <- "89052"
+nicu_2023[1160, "city"] <- "Las Vegas"
+nicu_2023[1160, "state"] <- "NV"
+nicu_2023[1160, "zip"] <- "89113"
+nicu_2023[1165, "city"] <- "Billings"
+nicu_2023[1165, "state"] <- "MT"
+nicu_2023[1165, "zip"] <- "59101"
+nicu_2023[1170, "state"] <- "GA"
+nicu_2023[1180, "city"] <- "Las Vegas"
+nicu_2023[1180, "state"] <- "NV"
+nicu_2023[1180, "zip"] <- "89109"
+nicu_2023[1184, "zip"] <- "95403"
+
+###1200s
+nicu_2023[1200, "state"] <- "TX"
+
+###1300s
+nicu_2023[1300, "state"] <- "TN"
+nicu_2023[1300, "zip"] <- "37920"
+nicu_2023[1336, "zip"] <- "15224"
+nicu_2023[1365, "city"] <- "Valhalla"
+nicu_2023[1365, "state"] <- "NY"
+nicu_2023[1365, "zip"] <- "10595"
+nicu_2023[1376, "zip"] <- "01890"
+
+nicu_2023 <- nicu_2023 %>%
+  mutate(
+    state = str_remove_all(state, " ")
+  )
+
+#reorder rows 
+nicu_2023 <- nicu_2023 %>% 
+  select(
+    nicu,
+    name,
+    addr,
+    city,
+    state,
+    zip,
+    level,
+    beds,
+    type,
+    contact
+  )
+
+#zip missing
+nicu_2023[1363, "zip"] <- "15224"
+
+#make a full joined address col for nicu23 after spelling check
+nicu_2023 <- nicu_2023 %>% unite("full_address", addr:city:state:zip, sep= " ", remove=FALSE)
+
+
+write.csv(nicu_2023, "~/My Documents/NICU Records/NICU/cleannicu23.csv")
+
+```
+
+```{r Cleaning 96 Data}
+# read in text file 
+nicu96 <- read.delim("Neonatologists_USA_1996_Directory.txt")
+
+# add a row number variable
+nicu96$row_num <- seq.int(nrow(nicu96))
+
+# correcting hospital names where there were doubles 
+nicu96[42, "hospital_name"] <- "UNIVERSITY OF ALABAMA HOSPITAL CHILDREN'S HOSPITAL OF ALABAMA"
+nicu96[2949, "hospital_name"] <- "ST. JOSEPH'S HOSPITAL/CREIGHTON UNIVERSITY"
+nicu96[3896, "hospital_name"] <- "TULSA REGIONAL MEDICAL CENTER"
+nicu96[3738, "hospital_name"] <- "MT. SINAI MEDICAL CENTER"
+
+#deleting unnecessary lines
+nicu96 <- nicu96[-c(43, 132, 391, 693, 754, 881, 1036, 1097, 1157, 1169, 1254, 1329, 1475, 1489, 1513, 1616, 1629, 1660, 1715, 1741, 1748, 1809, 1899, 1972, 2045, 2052, 2095, 2214 , 2227, 2258, 2265, 2326, 2375, 2497, 2522, 2585, 2634, 2737, 2798, 2811, 2818, 2893, 2900, 2926, 2950, 2963, 2994, 3007, 3080, 3123, 3130, 3167, 3179, 3222, 3241, 3242, 3357, 3382, 3389, 3414, 3421, 3434, 3489, 3508, 3526, 3587, 3606, 3745, 3824, 3927, 3995, 4080, 4117, 4206, 4213, 4238, 4504, 4571, 4902, 4949, 4986),]
+
+nicu96$row_num <- seq.int(nrow(nicu96))
+nicu96$hosp_group_num <- NA 
+
+# function to check if a string is all capitalized
+is_all_capitalized <- function(x) {
+  x == toupper(x)
+}
+
+# assign values to hosp_group_num based on capitalization pattern
+capitalized_group <- 0
+for (i in 1:nrow(nicu96)) {
+  if (is_all_capitalized(nicu96$hospital_name[i])) {
+    capitalized_group <- capitalized_group + 1
+  }
+  nicu96$hosp_group_num[i] <- capitalized_group
+}
+
+# use pivot_wider to widen based on hosp_group_num
+nicu96 <- nicu96 %>%
+  group_by(hosp_group_num) %>%
+  mutate(row_num = row_number()) %>%
+  pivot_wider(names_from = row_num,
+  values_from = c(hospital_name))
+
+# rename columns 
+colnames(nicu96) <- c("hosp_num", "hosp_name", "addr", "city_state_zip", "nicu_beds", "num_neonats", "neonat_names", "7", "8")
+```
+
+
+```{r Cleaning 96 Data}
+# fixing mistakes in pivot 
+
+#USNH - OKINAWA 
+nicu96[13, "city_state_zip"] <- "FPO, AP 96363"
+nicu96[13, "num_neonats"] <- "Neonatologists:2"
+nicu96[13, "neonat_names"] <- "Neonatologists names: John Golden; David Goodwin"
+
+#DESERT SAMARITAN MEDICAL CENTER
+nicu96[18, "neonat_names"] <- "Neonatologists names: Katherine Allare; Glenn Waterkotte"
+nicu96[18, "7"] <- "Refer to Phoenix Children's Hospital"
+
+#MARTIN LUTHER HOSPITAL 
+nicu96[35, "nicu_beds"] <- "NICU Beds: 22"
+nicu96[35, "num_neonats"] <- "Neonatologists:8"
+nicu96[35, "neonat_names"] <- "Neonatologists names: Leonard Fox; Mamerto Garcia; Gloria Morales; Sandra Shaw; Marlene Tan; Jeffery Teal; David Tio; Patrick Walsh" 
+
+
+#IRVINE MEDICAL CENTER 
+nicu96[63, "neonat_names"] <- "Neonatologists names: David Hicks; Pankaj Mistry"
+nicu96[63, "7"] <- "Refer to Children’s Hospital of Orange County"
+
+#LONG BEACH MEMORIAL MEDICAL CENTER
+nicu96[69, "hosp_name"] <- "LONG BEACH MEMORIAL MEDICAL CENTER"
+nicu96[69, "addr"] <- "2801 Atlanta Ave."
+nicu96[69, "city_state_zip"] <- "Long Beach, CA 90801"
+nicu96[69, "nicu_beds"] <- "NICU Beds:70"
+nicu96[69, "num_neonats"] <- "Neonatologists:5"
+nicu96[69, "neonat_names"] <- "Neonatologists names: Douglas Cunningham; Josefina Jacinto; Guadalupe Padilla-Robb; Jose Perez; Arthur Strauss" 
+nicu96[69, "7"] <- NA
+  	
+
+#CHILDREN'S HOSPITAL 
+nicu96[158, "addr"] <- "1056 E. 19th Ave."
+nicu96[158, "city_state_zip"] <- "Denver, CO 80218"
+nicu96[158, "nicu_beds"] <- "NICU Beds:20"
+nicu96[158, "num_neonats"] <- "Neonatologists:14"
+nicu96[158, "neonat_names"] <- "Neonatologists names: Joseph Butterfield; Daniel Hall; David Hall; Jacinto Hernandez; Douglas Jones; Jan Kennaugh; John Kinsella; Gerald Merenstein; Susan Niermeyer; Adam Rosenberg; Elizabeth Thilo; Patti Thureen; Susan Townsend; Randall Wilkening" 
+nicu96[158, "7"] <- NA
+
+
+#UNIVERSITY OF COLORADO HEALTH SCIENCE CENTER
+nicu96[164, "addr"] <- "4200 E. Ninth Ave."
+nicu96[164, "city_state_zip"] <- "Denver, CO 80262"
+nicu96[164, "nicu_beds"] <- "NICU Beds:24"
+nicu96[164, "num_neonats"] <- "Neonatologists:2"
+nicu96[164, "neonat_names"] <- "Neonatologists names: Frederick Battaglia; William Hay Jr." 
+nicu96[164, "7"] <- "Refer to Children’s Hospital, Denver"
+nicu96[164, "8"] <- NA
+
+
+#ST. MARY'S HOSPITAL & MEDICAL CENTER
+nicu96[166, "addr"] <- "7th St. & Patterson Rd."
+nicu96[166, "city_state_zip"] <- "Grand Junction, CO 81502"
+nicu96[166, "nicu_beds"] <- "NICU Beds:17"
+nicu96[166, "num_neonats"] <- "Neonatologists:2"
+nicu96[166, "neonat_names"] <- "Neonatologists names: Richard Flaksman; Ann Olewnik" 
+nicu96[166, "7"] <- NA
+
+#UNIVERSITY OF CONNECTICUT HEALTH CENTER 
+nicu96[173, "addr"] <- "263 Farmington Ave"
+nicu96[173, "city_state_zip"] <- "Farmington, CT 06030"
+nicu96[173, "nicu_beds"] <- "NICU Beds:47"
+nicu96[173, "num_neonats"] <- "Neonatologists:7"
+nicu96[173, "neonat_names"] <- "Neonatologists names: Naveed Hussain; Isabella Knox; Mitchell Kresch; Mariann Pappagallo; Ted Rosenkrantz; Jonellle Rowe; Marilyn Sanders"
+
+
+#WALTER REED ARMY MEDICAL CENTER
+nicu96[193, "addr"] <- "6900 Georgia Avenue NW"
+nicu96[193, "city_state_zip"] <- "Washington, DC 20307"
+nicu96[193, "nicu_beds"] <- "NICU Beds:16"
+nicu96[193, "num_neonats"] <- "Neonatologists:"
+nicu96[193, "neonat_names"] <- "Refer to Uniform Services University of the Health Science, Bethesda, MD" 
+
+#RUSH-PRESBYTERIAN-ST, LUKE'S MEDICAL CENTER
+nicu96[288, "addr"] <- "1653 W. Congress Pkwy."
+nicu96[288, "city_state_zip"] <- "Chicago, IL 60612"
+nicu96[288, "nicu_beds"] <- "NICU Beds:45"
+nicu96[288, "num_neonats"] <- "Neonatologists:8"
+nicu96[288, "neonat_names"] <- "Neonatologists names: Harold Bigger; Terese Jennings; Robert Kimura; Werner Meier; Jean Silvestri; Stefanie Spanier-Mingolelli; Michael Uhing; Ushanalini Vasa" 
+nicu96[288, "7"] <- NA
+
+nicu96[217, "neonat_names"] <- "Neonatologists names: Joann Berlin"
+nicu96[217, "7"] <- "Refer to Miami Children's Hospital"
+
+nicu96[421, "num_neonats"] <- "Neonatologists: "
+nicu96[421, "neonat_names"] <- NA
+nicu96[421, "7"] <- "Refer to Children's Hospital, Boston"
+
+nicu96[474, "neonat_names"] <- "Neonatologists names: Robert Stein"
+nicu96[474, "7"] <- "Refer to Children’s Mercy Hospital"
+
+nicu96[472, "num_neonats"] <- "Neonatologists: "
+nicu96[472, "neonat_names"] <- NA
+nicu96[472, "7"] <- "Refer to Research Medical Center"
+
+
+#UNIVERSITY OF MICHIGAN MEDICAL CENTER
+nicu96[424, "addr"] <- "200 E. Hospital Dr."
+nicu96[424, "city_state_zip"] <- "Ann Arbor, MI 48109"
+nicu96[424, "nicu_beds"] <- "NICU Beds:38"
+nicu96[424, "num_neonats"] <- "Neonatologists:7"
+nicu96[424, "neonat_names"] <- "Neonatologists names: John Barks; Mary Ellen Bozynski; Steven Donn; Margaret Everett; Roger Faix; Dietrich Roloff; Robert Shumacher" 
+nicu96[424, "7"] <- NA
+
+#TAMPA GENERAL HOSPITAL 
+nicu96[234, "addr"] <- "1 Tampa General Cir."
+nicu96[234, "city_state_zip"] <- "Tampa, FL 33606"
+nicu96[234, "nicu_beds"] <- "NICU Beds:42"
+nicu96[234, "num_neonats"] <- "Neonatologists:4"
+nicu96[234, "neonat_names"] <- "Neonatologists names: John Curran; Robert Nelson; Carine Stromquist; Lance Wyble" 
+nicu96[234, "7"] <- NA
+
+
+#PRESBYTERIAN HEMBY CHILDREN HOSPITAL
+nicu96[588, "addr"] <- "200 Hawthorne Lane"
+nicu96[588, "city_state_zip"] <- "Charlotte, NC 28233"
+nicu96[588, "nicu_beds"] <- "NICU Beds:16"
+nicu96[588, "num_neonats"] <- "Neonatologists:4"
+nicu96[588, "neonat_names"] <- "Neonatologists names: Joseph Brady; Allen Cherer; Rogers Howell; Jay Kothadia " 
+nicu96[588, "7"] <- NA
+
+
+#WILLFORD HALL USAF MEDICAL CENTER
+nicu96[763, "addr"] <- "2200 Berquist Dr., Ste. #1"
+nicu96[763, "city_state_zip"] <- "Lackland AFB, TX 78236"
+nicu96[763, "nicu_beds"] <- "NICU Beds:35"
+nicu96[763, "num_neonats"] <- "Neonatologists:9"
+nicu96[763, "neonat_names"] <- "Neonatologists names: Michael Battista; Daniel Biehl; Jeffrey Butler; Howard Heiman; David Louder; Thomas Perkins; Jeffrey Schenberger; Richard Stribley; Bradley Yoder" 
+nicu96[763, "7"] <- NA
+
+
+#LAKELAND REGIONAL MEDICAL CENTER
+nicu96[215, "addr"] <- "1324 Lakeland Hills Blvd. "
+nicu96[215, "city_state_zip"] <- "Lakeland, FL 33804"
+nicu96[215, "nicu_beds"] <- "NICU Beds:18"
+nicu96[215, "num_neonats"] <- "Neonatologists:1"
+nicu96[215, "neonat_names"] <- "Neonatologists names: Peter Taves" 
+nicu96[215, "7"] <- NA
+
+
+#CHILDREN'S HOSPITAL OF WISCONSIN
+nicu96[831, "addr"] <- "9000 W. Wisconsin Ave."
+nicu96[831, "city_state_zip"] <- "Milwaukee, WI 63226"
+nicu96[831, "nicu_beds"] <- "NICU Beds:22"
+nicu96[831, "num_neonats"] <- "Neonatologists:8"
+nicu96[831, "neonat_names"] <- "Neonatologists names: Susan Bernstein; Stephen Elliott; Candice Fike; Lynn Gershan; Ruth Heimler; Marisa Jaren; Steve Leuthner; Leif Nelin" 
+nicu96[831, "7"] <- NA
+
+
+#DUBOIS REGIONAL MEDICAL CENTER
+nicu96[657, "addr"] <- "529 Sunflower Dr."
+nicu96[657, "city_state_zip"] <- "Dubois, PA 15801"
+nicu96[657, "nicu_beds"] <- "NICU Beds:15"
+nicu96[657, "num_neonats"] <- "Neonatologists:2"
+nicu96[657, "neonat_names"] <- "Neonatologists names: William Siar; Douglas Sprague" 
+nicu96[657, "7"] <- NA
+
+
+#MEDICAL COLLEGE OF GEORGIA HOSPITAL
+nicu96[251, "addr"] <- "BIW 8078"
+nicu96[251, "city_state_zip"] <- "Augusta, GA 30912"
+nicu96[251, "nicu_beds"] <- "NICU Beds:22"
+nicu96[251, "num_neonats"] <- "Neonatologists:5"
+nicu96[251, "neonat_names"] <- "Neonatologists names: Jatinder Bhatia; Frederick Boedy; Spencer Brudno; Chantrapa Bunyapen; William Kanto"
+
+nicu96[271, "addr"] <- "1 Jarrett White Rd."
+nicu96[271, "city_state_zip"] <- "Honolulu, HI 96859"
+nicu96[271, "nicu_beds"] <- "NICU Beds:18"
+nicu96[271, "num_neonats"] <- "Neonatologists:2"
+nicu96[271, "neonat_names"] <- "Neonatologists names: Jeffrey Paul; Steven Van Scoy"
+
+nicu96[301, "addr"] <- "3 Erie St."
+nicu96[301, "city_state_zip"] <- "Oak Park, IL 60302"
+nicu96[301, "nicu_beds"] <- "NICU Beds:6"
+nicu96[301, "num_neonats"] <- "Neonatologists:3"
+nicu96[301, "neonat_names"] <- "Neonatologists names: Stephen Co; Bradley Goldenberg; Marc Weiss"
+
+#UNIVERSITY OF LOUISVILLE SCHOOL OF MEDICINE
+nicu96[348, "addr"] <- "500 S Preston St."
+nicu96[348, "city_state_zip"] <- "Louisville, KY 40292"
+nicu96[348, "nicu_beds"] <- "NICU Beds: "
+nicu96[348, "num_neonats"] <- "Neonatologists:9"
+nicu96[348, "neonat_names"] <- "Neonatologists names: David Adamkin; Karen Bibb; Larry Cook; Herbert Lassiter; John Roberts; Tonnya Robinson; Roger Shott; Dan Stewart; Shirley Wilkerson"
+
+#UNIVERSITY MEDICAL CENTER STONY BROOK
+nicu96[578, "addr"] <- "101 Nicolls Rd."
+nicu96[578, "city_state_zip"] <- "Stony Brock, NY 11794"
+nicu96[578, "nicu_beds"] <- "NICU Beds:40"
+nicu96[578, "num_neonats"] <- "Neonatologists:5"
+nicu96[578, "neonat_names"] <- "Neonatologists names: Lyle Browne; Jseph De Cristofaro; Leonard Kleinman; Edmund LaGamma; Lance Parton"
+
+#WESTCHESTER MEDICAL CENTER
+nicu96[581, "addr"] <- "100 Woods Rd."
+nicu96[581, "city_state_zip"] <- "Valhalla, NY 10595"
+nicu96[581, "nicu_beds"] <- "NICU Beds:30"
+nicu96[581, "num_neonats"] <- "Neonatologists:4"
+nicu96[581, "neonat_names"] <- "Neonatologists names: Harry Dweck; Lilian Gonzalez; Sarvesh Nigam; Mario Reale"
+
+#UNIVERSITY OF PUERTO RICO SCHOOL OF MEDICINE
+nicu96[691, "addr"]<- "P.O. BOX 5067"
+nicu96[691, "city_state_zip"]<- "San Juan, PR 00936"
+nicu96[691, "nicu_beds"]<- "NICU Beds:16"
+nicu96[691, "num_neonats"] <- "Neonatologists: 2"
+nicu96[691, "neonat_names"] <- "Neonatologists names: Gloria Reyes; Marta Valcarcel"
+
+#	RYDER MEMORIAL HOSPITAL
+nicu96[688, "nicu_beds"]<- "NICU Beds:"
+nicu96[688, "num_neonats"] <- "Neonatologists: "
+nicu96[688, "neonat_names"] <- NA
+
+#HOUSTON NORTHWEST MEDICAL CENTER
+nicu96[752, "addr"]<- "710 FM 1960 W."
+nicu96[752, "city_state_zip"]<- "Houston, TX 77090"
+nicu96[752, "nicu_beds"]<- "NICU Beds:15"
+nicu96[752, "num_neonats"] <- "Neonatologists: 3"
+nicu96[752, "neonat_names"] <- "Neonatologists names: Margia Pernoll; Richard Rivas; Cheryl Robinson"
+
+
+#781 UTAH VALLEY REGIONAL MEDICAL CENTER
+nicu96[781, "addr"]<- "1034 N. 500 W."
+nicu96[781, "city_state_zip"]<- "Provo, UT 84605"
+nicu96[781, "nicu_beds"]<- "NICU Beds:32"
+nicu96[781, "num_neonats"] <- "Neonatologists: 4"
+nicu96[781, "neonat_names"] <- "Neonatologists names:  Dale Gerstman; Les Lang; Stephen Minton; Ronald Stoddard"
+
+
+#788 UNIVERSITY OF VIRGINIA HEALTH SCIENCES CENTER
+nicu96[788, "addr"]<- "140 Hospital Dr."
+nicu96[788, "city_state_zip"]<- "Charlottesville, VA 22908"
+nicu96[788, "nicu_beds"]<- "NICU Beds:31"
+nicu96[788, "num_neonats"] <- "Neonatologists: 6"
+nicu96[788, "neonat_names"] <- "Neonatologists names: Robert Boyle; Victoria Camerini; Pamela Griffin; John Kattwinkel; Thomas Massaro; Robert Roberts"
+
+#818 MADIGAN ARMY MEDICAL CENTER
+nicu96[818, "addr"]<- "9040A Jackson Ave."
+nicu96[818, "city_state_zip"]<- "Joint Base Lewis-McChord, WA 98431"
+nicu96[818, "nicu_beds"]<- "NICU Beds:27"
+nicu96[818, "num_neonats"] <- "Neonatologists: 3"
+nicu96[818, "neonat_names"] <- "Neonatologists names: Thomas Caver; Roger Hinson; Robert Jarrett"
+
+#delete 
+nicu96 <- nicu96[-c(14, 252, 272, 406, 692, 753, 782),]
+
+#renumber 
+nicu96$hosp_num <- seq.int(nrow(nicu96))
+
+#rename 
+colnames(nicu96) <- c("hosp_num", "hosp_name", "addr", "city_state_zip", "nicu_beds", "num_neonats", "neonat_names", "referral")
+
+#identify rows that start with "refer"
+refer_rows <- grepl("^Refer", nicu96$neonat_names)
+
+#move the contents to the TargetColumn
+nicu96$referral[refer_rows] <- nicu96$neonat_names[refer_rows]
+
+#clear neo nat referrals 
+nicu96$neonat_names[refer_rows] <- NA
+
+#fixing addresses that did not geocode 
+#ST. MARY'S HOSPITAL & MEDICAL CENTER
+nicu96[165, "addr"]<- "2635 N 7th St."
+nicu96[165, "city_state_zip"]<- "Grand Junction, CO 81501"
+
+#ST. FRANCIS HOSPITAL 
+nicu96[184, "addr"]<- "701 N Clayton St."
+nicu96[184, "city_state_zip"]<- "Wilmington, DE 19805"
+
+#METHODIST HOSPITAL OF INDIANA 
+nicu96[314, "addr"]<- "1701 N Senate Ave."
+nicu96[314, "city_state_zip"]<- "Indianapolis, IN 46202"
+
+#MERCY HOSPITAL MEDICAL CENTER 
+nicu96[324, "addr"]<- "1111 6th Ave."
+nicu96[324, "city_state_zip"]<- "Des Moines, IA 50314"
+
+#ANNE ARUNDEL MEDICAL CENTER
+nicu96[381, "addr"]<- "2001 Medical Pkwy."
+nicu96[381, "city_state_zip"]<- "Annapolis, MD 21401"
+
+#MUNSON MEDICAL CENTER
+nicu96[442, "addr"]<- "1105 Sixth St."
+nicu96[442, "city_state_zip"]<- "Traverse City, MI 49684"
+
+nicu96 = select(nicu96, -9)
+
+#Create cols for state and zip
+nicu96$state <- NA
+nicu96$zip <- NA 
+
+nicu96 <- nicu96 %>% 
+  separate(city_state_zip, into = c("city", "state"), sep = ",")
+
+# Extracting the numbers from the "state" column and moving them into the "zip" column
+nicu96 <- nicu96 %>%
+  mutate(zip = str_extract(state, "\\d+"),
+         state = str_remove(state, "\\d+"))
+
+
+#more errors 
+nicu96[303, "city"]<- "Springfield"
+nicu96[303, "state"]<- "IL"
+
+nicu96[456, "state"]<- "MS"
+nicu96[456, "zip"]<- "39404"
+
+nicu96[483, "state"]<- "NE"
+nicu96[483, "zip"]<- "68114"
+
+nicu96[657, "state"]<- "PA"
+nicu96[657, "zip"]<- "17101"
+
+nicu96[658, "state"]<- "PA"
+nicu96[658, "zip"]<- "17110"
+
+nicu96[800, "zip"]<- "98206"
+
+#Fixing dashes
+row_numbers <- which(str_detect(nicu96$state, "-")) #identify in what rows of state "-" appears 
+nicu96$state[row_numbers] <- str_replace(nicu96$state[row_numbers], "-.*", "") #use row_number as id and delete everything after the - in state
+
+#reorder rows 
+nicu96 <- nicu96 %>% 
+  select(
+    hosp_num,
+    hosp_name,
+    addr,
+    city,
+    state,
+    zip,
+    nicu_beds,
+    num_neonats,
+    neonat_names,
+    referral
+  )
+
+nicu96 <- nicu96 %>% unite("full_address", addr:city:state:zip, sep= " ", remove=FALSE)
+
+write.csv(nicu96, "~/My Documents/NICU Records/NICU/cleannicu96.csv")
+
+```
+
+

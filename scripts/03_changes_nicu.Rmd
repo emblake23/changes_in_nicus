@@ -1,0 +1,206 @@
+# --------------------------------
+#Description: Using 1996, 2001, and 2023 NICU directories to count and calculate changes in NICU count on the county level in prep for mapping
+#Author: Elizabeth Blake 
+#Created 4/12/2024
+#Last Edit: 4/12/2024
+# --------------------------------
+
+```{r}
+
+# installing and loading necessary libraries 
+if(!requireNamespace("pacman", quietly = TRUE)) install.packages("pacman")
+pacman::p_load(here, folders, readr, dplyr, tidyr, stringr, purrr, lubridate, snakecase, ggplot2, ggthemes, cowplot, magrittr, rgdal, tidygeocoder, sf, tigris, MetBrewer, tidyverse, RColorBrewer, patchwork, ggmap)
+
+```
+
+```{r}
+
+# loading in each year of NICU data  
+nicu96 <- read_csv(here("data", "cleannicu96.csv")) %>% 
+  select(-c(...1)) %>% 
+  filter(!str_detect(hosp_name, "OKINAWA")) %>% #filtering out japan nicu
+  mutate(hosp_num = row_number())
+nicu11 <- read_csv(here("data", "cleannicu11.csv")) %>% 
+  select(-c(...1)) %>% 
+  filter(!str_detect(hosp_name, "OKINAWA")) %>%  #filtering out japan nicu
+  mutate(hosp_num = row_number())
+nicu23 <- read_csv(here("data","cleannicu23.csv")) %>% 
+  select(-c(...1)) %>% 
+  rename(hosp_num = nicu)
+
+# tiger line states
+states <- states()
+counties <- counties(state = NULL) %>% 
+  st_transform(counties, crs = 5070) %>% 
+  select(c(STATEFP, GEOID, NAME)) 
+counties <- st_make_valid(counties)
+  
+```
+
+```{r}
+
+# setting up google api
+register_google( key="AIzaSyDNT-FRCdRq8Fyk_124KLQzQd9Vv2AmbQM", write = FALSE) 
+
+# geocoding addresses using addresses column
+nicu96.geo <- mutate_geocode(nicu96, location = full_address, output = "latlona")
+nicu11.geo <- mutate_geocode(nicu11, location = full_address, output = "latlona")
+nicu23.geo <- mutate_geocode(nicu23, location = full_address, output = "latlona")
+
+# manually adding lat lons that geocode did not get in 96 and 11 (all addresses worked in 23)
+nicu96.geo <- nicu96.geo %>% 
+  mutate(
+    lat = if_else(str_detect(hosp_name, "BETH ISRAEL MEDICAL CENTER"), 40.732880, lat),
+    lon = if_else(str_detect(hosp_name, "BETH ISRAEL MEDICAL CENTER"), -73.981743, lon),
+    lat = if_else(str_detect(hosp_name, "CHILDREN'S HOSPITAL OF PHILADELPHIA"), 39.946018, lat),
+    lon = if_else(str_detect(hosp_name, "CHILDREN'S HOSPITAL OF PHILADELPHIA"), -75.198227, lon),
+    lat = if_else(str_detect(hosp_name, "COLUMBIA DOCTOR'S HOSPITAL"), 34.747390, lat),
+    lon = if_else(str_detect(hosp_name, "COLUMBIA DOCTOR'S HOSPITAL"), -92.309880, lon),
+    lat = if_else(str_detect(hosp_name, "BELLEVUE HOSPITAL CENTER"), 40.739430, lat),
+    lon = if_else(str_detect(hosp_name, "BELLEVUE HOSPITAL CENTER"), -73.976720, lon)
+  )
+
+nicu11.geo <- nicu11.geo %>% 
+  mutate(
+    lat = if_else(str_detect(hosp_name, "BETH ISRAEL MEDICAL CENTER"), 40.732880, lat),
+    lon = if_else(str_detect(hosp_name, "BETH ISRAEL MEDICAL CENTER"), -73.981743, lon),
+    lat = if_else(str_detect(hosp_name, "CHILDREN'S HOSPITAL OF PHILADELPHIA"), 39.946018, lat),
+    lon = if_else(str_detect(hosp_name, "CHILDREN'S HOSPITAL OF PHILADELPHIA"), -75.198227, lon)
+  )
+
+```
+
+```{r}
+
+# creating point geometry from lat lon cols using sf package
+nicu96_locations <- st_as_sf(nicu96.geo, coords = c("lon", "lat"), crs = 4326) %>% 
+  st_transform(nicu96_pts, crs = 5070)
+nicu11_locations <- st_as_sf(nicu11.geo, coords = c("lon", "lat"), crs = 4326) %>% 
+  st_transform(nicu96_pts, crs = 5070)
+nicu23_locations <- st_as_sf(nicu23.geo, coords = c("lon", "lat"), crs = 4326) %>% 
+  st_transform(nicu96_pts, crs = 5070)
+
+# checking points to make sure no wrong lat lons 
+# ggplot() + geom_sf(data = nicu96_locations, col = "red") + geom_sf(data = states)
+# ggplot() + geom_sf(data = nicu11_locations, col = "red") + geom_sf(data = states)
+# ggplot() + geom_sf(data = nicu23_locations, col = "red") + geom_sf(data = states)
+
+# joining to get nicu's counties using tiger county files
+nicu96_locations <- st_join(nicu96_locations, counties)
+nicu11_locations <- st_join(nicu11_locations, counties)
+nicu23_locations <- st_join(nicu23_locations, counties)
+
+# removing unnecessary dfs
+rm(nicu96.geo, nicu11.geo, nicu23.geo)
+
+```
+
+```{r}
+
+# group by county to count number of NICUs in each
+counts_96 <- nicu96_locations %>%
+  group_by(GEOID) %>%
+  summarize(nicu_count_96 = n()) %>% 
+  st_drop_geometry()
+
+counts_11 <- nicu11_locations %>%
+  group_by(GEOID) %>%
+  summarize(nicu_count_11 = n()) %>% 
+  st_drop_geometry()
+
+counts_23 <- nicu23_locations %>%
+  group_by(GEOID) %>%
+  summarize(nicu_count_23 = n()) %>% 
+  st_drop_geometry()
+
+# joining county to county level counts 
+county_level_96 <- left_join(counties, counts_96, by = "GEOID") %>% 
+  select(STATEFP, GEOID, nicu_count_96) %>% 
+  mutate(nicu_count_96 = replace_na(nicu_count_96, 0)) %>% 
+  st_drop_geometry()
+
+county_level_11 <- left_join(counties, counts_11, by = "GEOID") %>% 
+  select(STATEFP, GEOID, nicu_count_11) %>% 
+  mutate(nicu_count_11 = replace_na(nicu_count_11, 0)) %>% 
+  st_drop_geometry()
+
+county_level_23 <- left_join(counties, counts_23, by = "GEOID") %>% 
+  select(STATEFP, GEOID, nicu_count_23) %>% 
+  mutate(nicu_count_23 = replace_na(nicu_count_23, 0)) %>%
+  st_drop_geometry()
+
+# removing unncessary dfs (after join)
+rm(counts_96, counts_11, counts_23)
+
+```
+
+```{r}
+
+# combining nicu yearly counts into one df
+full_county_counts <- left_join(county_level_96, county_level_11, by = c("GEOID", "STATEFP"))
+full_county_counts <- left_join(full_county_counts, county_level_23, c("GEOID", "STATEFP"))
+
+```
+
+```{r}
+
+# calculating the yearly change in nicus count
+full_county_counts <- full_county_counts %>% 
+  mutate(
+    change96to11 = as.character(nicu_count_11 - nicu_count_96), #11 nicu count - 96 = difference/change in nicu, then making character  
+    change11to23 = as.character(nicu_count_23 - nicu_count_11),
+    change96to23 = as.character(nicu_count_23 - nicu_count_96),
+    change96to11 = case_when(
+                         nicu_count_96 == 0 & nicu_count_11 == 0 ~ "No NICUs", #when both years are 0 mark as no nicus 
+                         TRUE ~ change96to11), #if cell does not meet conditions above, it retains original value
+    change11to23 = case_when(
+                         nicu_count_11 == 0 & nicu_count_23 == 0 ~ "No NICUs",
+                         TRUE ~ change11to23),
+    change96to23 = case_when(
+                        nicu_count_96 == 0 & nicu_count_23 == 0 ~ "No NICUs",
+                        TRUE ~ change96to23)
+  ) 
+
+```
+
+```{r}
+
+# creating factor based on the yearly change in nicus count
+full_county_counts <- full_county_counts %>% 
+  mutate(level_96_11 = case_when( 
+                              change96to11 == "No NICUs" ~ 0,
+                              change96to11>= 5 ~ 1,
+                              change96to11==2 | change96to11==3 | change96to11==4 ~ 2,
+                              change96to11==1 ~ 3,
+                              change96to11==0 ~ 4,
+                              change96to11==-1 ~5,
+                              change96to11==-2 | change96to11==-3 | change96to11==-4 ~ 6),
+         level_96_11 = factor(level_96_11, levels=c(0,1,2,3,4,5,6), labels=c("No NICUs", "Increase 5-14", "Increase 2-4", "Increase 1", "No Change", "Decrease 1", "Decrease 2-4")),
+         level_11_23 = case_when(
+                              change11to23 == "No NICUs" ~ 0,
+                              change11to23>= 5 ~ 1,
+                              change11to23==2 | change11to23==3 | change11to23==4 ~ 2,
+                              change11to23==1 ~ 3,
+                              change11to23==0 ~ 4,
+                              change11to23==-1 ~5,
+                              change11to23==-2 | change11to23==-3 | change11to23==-4 ~ 6),
+         level_11_23 = factor(level_11_23, levels=c(0,1,2,3,4,5,6), labels=c("No NICUs", "Increase 5-14", "Increase 2-4", "Increase 1", "No Change", "Decrease 1", "Decrease 2-4")),
+         level_96_23 = case_when(
+                              change96to23 == "No NICUs" ~ 0,
+                              change96to23>= 5 ~ 1,
+                              change96to23==2 | change96to23==3 | change96to23==4 ~ 2,
+                              change96to23==1 ~ 3,
+                              change96to23==0 ~ 4,
+                              change96to23==-1 ~5,
+                              change96to23==-2 | change96to23==-3 | change96to23==-4 ~ 6),
+          level_96_23 = factor(level_96_23, levels=c(0,1,2,3,4,5,6), labels=c("No NICUs", "Increase 5-14", "Increase 2-4", "Increase 1", "No Change", "Decrease 1", "Decrease 2-4"))
+         )
+
+```
+
+```{r}
+
+# creating csv to use in next script for mapping
+write_csv(full_county_counts, "/projects/casey-cohort/projects/peds/nicu_locations/changes_nicu/data/full_county_counts.csv")
+
+```
